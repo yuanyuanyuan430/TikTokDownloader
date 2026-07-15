@@ -1,12 +1,16 @@
+from re import fullmatch
 from textwrap import dedent
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from httpx import HTTPStatusError, RequestError
 from uvicorn import Config, Server
 
 from ..custom import (
+    DOWNLOAD_HEADERS,
     __VERSION__,
     REPOSITORY,
     SERVER_HOST,
@@ -43,6 +47,19 @@ if TYPE_CHECKING:
     from ..manager import Database
 
 __all__ = ["APIServer"]
+
+
+def is_allowed_media_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+        return (
+            parsed.scheme == "https"
+            and parsed.hostname == "www.douyin.com"
+            and parsed.port in {None, 443}
+            and parsed.path.rstrip("/") == "/aweme/v1/play"
+        )
+    except ValueError:
+        return False
 
 
 def token_dependency(token: str = Header(None)):
@@ -116,6 +133,68 @@ class APIServer(TikTok):
         async def index():
             return FileResponse(
                 get_base_dir().joinpath("static", "web", "index.html")
+            )
+
+        @self.server.get(
+            "/media",
+            include_in_schema=False,
+        )
+        async def media(request: Request, url: str):
+            if not is_allowed_media_url(url):
+                raise HTTPException(status_code=400, detail=_("媒体地址无效！"))
+
+            range_header = request.headers.get("range", "bytes=0-")
+            if not fullmatch(r"bytes=(?:\d+-\d*|-\d+)", range_header):
+                raise HTTPException(status_code=416, detail=_("Range 请求无效！"))
+
+            response = None
+            try:
+                upstream_request = self.parameter.client.build_request(
+                    "GET",
+                    url,
+                    headers=DOWNLOAD_HEADERS | {"Range": range_header},
+                )
+                response = await self.parameter.client.send(
+                    upstream_request,
+                    stream=True,
+                )
+                response.raise_for_status()
+                media_type = response.headers.get("content-type", "").split(";", 1)[0]
+                if (
+                    not media_type.startswith(("video/", "audio/"))
+                    and media_type != "application/octet-stream"
+                ):
+                    await response.aclose()
+                    raise HTTPException(status_code=502, detail=_("媒体响应无效！"))
+            except (HTTPStatusError, RequestError):
+                if response:
+                    await response.aclose()
+                raise HTTPException(status_code=502, detail=_("媒体请求失败！"))
+
+            async def stream_media():
+                try:
+                    async for chunk in response.aiter_raw():
+                        yield chunk
+                finally:
+                    await response.aclose()
+
+            headers = {
+                name: value
+                for name in (
+                    "content-length",
+                    "content-range",
+                    "accept-ranges",
+                    "etag",
+                    "last-modified",
+                )
+                if (value := response.headers.get(name))
+            }
+            headers["Content-Disposition"] = "inline"
+            return StreamingResponse(
+                stream_media(),
+                status_code=response.status_code,
+                media_type=media_type,
+                headers=headers,
             )
 
         @self.server.get(

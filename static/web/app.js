@@ -644,6 +644,22 @@ function collectMedia(data) {
   return items;
 }
 
+function localMediaUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (
+      parsed.protocol === "https:" &&
+      parsed.hostname === "www.douyin.com" &&
+      parsed.pathname.replace(/\/$/, "") === "/aweme/v1/play"
+    ) {
+      return `/media?url=${encodeURIComponent(url)}`;
+    }
+  } catch {
+    return url;
+  }
+  return url;
+}
+
 function renderMedia(items) {
   elements.mediaList.replaceChildren();
   elements.mediaSection.hidden = items.length === 0;
@@ -683,10 +699,11 @@ function renderMedia(items) {
     copy.append(title, path);
 
     const link = document.createElement("a");
-    link.href = item.url;
+    const href = localMediaUrl(item.url);
+    link.href = href;
     link.target = "_blank";
     link.rel = "noreferrer";
-    link.textContent = "打开";
+    link.textContent = href === item.url ? "打开" : "播放";
     row.append(visual, copy, link);
     elements.mediaList.append(row);
   }

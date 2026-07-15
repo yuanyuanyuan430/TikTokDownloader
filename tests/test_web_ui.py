@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.application.main_server import APIServer
+from src.application.main_server import APIServer, is_allowed_media_url
 from src.models import LiveTikTok
 from src.tools import DownloaderError
 from src.tools.dynamic_import import get_base_dir
@@ -61,6 +61,21 @@ class WebUITest(unittest.TestCase):
         annotation = signature(endpoint).parameters["extract"].annotation
 
         self.assertIs(annotation, LiveTikTok)
+
+    def test_media_proxy_only_allows_douyin_play_endpoint(self):
+        self.assertTrue(
+            is_allowed_media_url(
+                "https://www.douyin.com/aweme/v1/play/?video_id=123"
+            )
+        )
+        for url in (
+            "http://www.douyin.com/aweme/v1/play/?video_id=123",
+            "https://www.douyin.com.example.com/aweme/v1/play/?video_id=123",
+            "https://127.0.0.1/aweme/v1/play/?video_id=123",
+            "https://www.douyin.com/other/path",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(is_allowed_media_url(url))
 
     def test_account_api_keeps_coauthor_when_owner_item_is_missing(self):
         api = APIServer.__new__(APIServer)
