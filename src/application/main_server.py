@@ -2,7 +2,8 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from uvicorn import Config, Server
 
 from ..custom import (
@@ -34,6 +35,7 @@ from ..models import (
     VideoSearch,
 )
 from ..translation import _
+from ..tools.dynamic_import import get_base_dir
 from .main_terminal import TikTok
 
 if TYPE_CHECKING:
@@ -90,6 +92,12 @@ class APIServer(TikTok):
             title="DouK-Downloader",
             version=__VERSION__,
         )
+        static_root = get_base_dir().joinpath("static")
+        self.server.mount(
+            "/static",
+            StaticFiles(directory=static_root),
+            name="static",
+        )
         self.setup_routes()
         config = Config(
             self.server,
@@ -103,11 +111,20 @@ class APIServer(TikTok):
     def setup_routes(self):
         @self.server.get(
             "/",
+            include_in_schema=False,
+        )
+        async def index():
+            return FileResponse(
+                get_base_dir().joinpath("static", "web", "index.html")
+            )
+
+        @self.server.get(
+            "/repository",
             summary=_("访问项目 GitHub 仓库"),
             description=_("重定向至项目 GitHub 仓库主页"),
             tags=[_("项目")],
         )
-        async def index():
+        async def repository():
             return RedirectResponse(url=REPOSITORY)
 
         @self.server.get(
@@ -634,7 +651,7 @@ class APIServer(TikTok):
             response_model=DataResponse,
         )
         async def handle_live_tiktok(
-            extract: Live, token: str = Depends(token_dependency)
+            extract: LiveTikTok, token: str = Depends(token_dependency)
         ):
             if data := await self.handle_live(
                 extract,

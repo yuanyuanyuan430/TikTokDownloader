@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f3ef">
+    <meta
+      name="description"
+      content="DouK-Downloader 的本地 Web 工作台，用于调用抖音与 TikTok 数据接口。"
+    >
+    <title>DouK 工作台</title>
+    <script>
+      if (location.protocol === "file:") {
+        document.documentElement.classList.add("direct-open");
+      }
+    </script>
+    <style>
+      .direct-open-help {
+        display: none;
+      }
+
+      .direct-open body {
+        margin: 0;
+        background: #f2f3ef;
+        color: #20221f;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .direct-open .app-shell,
+      .direct-open .toast {
+        display: none;
+      }
+
+      .direct-open .direct-open-help {
+        box-sizing: border-box;
+        display: grid;
+        min-height: 100vh;
+        padding: 24px;
+        place-items: center;
+      }
+
+      .direct-open-card {
+        box-sizing: border-box;
+        width: min(100%, 560px);
+        padding: 36px;
+        border: 1px solid #d7d9d2;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 18px 50px rgb(32 34 31 / 10%);
+      }
+
+      .direct-open-card p {
+        line-height: 1.65;
+      }
+
+      .direct-open-card code {
+        display: block;
+        margin: 22px 0;
+        padding: 14px 16px;
+        overflow-wrap: anywhere;
+        border-radius: 10px;
+        background: #20221f;
+        color: #fff;
+      }
+
+      .direct-open-card a {
+        display: inline-block;
+        padding: 11px 16px;
+        border-radius: 9px;
+        background: #8f2f2b;
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+    </style>
+    <link rel="icon" href="/static/images/DouK-Downloader.png">
+    <link rel="stylesheet" href="/static/web/app.css">
+  </head>
+  <body>
+    <main class="direct-open-help" aria-labelledby="direct-open-title">
+      <section class="direct-open-card">
+        <h1 id="direct-open-title">需要先启动 DouK 后端</h1>
+        <p>这个工作台不能通过双击 HTML 文件运行。在项目目录执行下面的命令，然后通过本地网址打开。</p>
+        <code>.venv/bin/python main.py</code>
+        <a href="http://127.0.0.1:5555/">打开 http://127.0.0.1:5555</a>
+      </section>
+    </main>
+
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="/" aria-label="DouK 工作台首页">
+          <img
+            class="brand-mark"
+            src="/static/images/DouK-Downloader.png"
+            width="44"
+            height="44"
+            alt=""
+          >
+          <span class="brand-copy">
+            <strong>DouK</strong>
+            <span>采集工作台</span>
+          </span>
+        </a>
+
+        <nav class="task-nav" aria-label="任务类型">
+          <p class="nav-label">数据任务</p>
+          <button class="nav-item is-active" type="button" data-task="detail">
+            <span>作品解析</span>
+            <small>链接或 ID</small>
+          </button>
+          <button class="nav-item" type="button" data-task="account">
+            <span>账号作品</span>
+            <small>发布与喜欢</small>
+          </button>
+          <button class="nav-item" type="button" data-task="mix">
+            <span>合集内容</span>
+            <small>批量读取</small>
+          </button>
+          <button class="nav-item" type="button" data-task="live">
+            <span>直播信息</span>
+            <small>拉流地址</small>
+          </button>
+          <button class="nav-item" type="button" data-task="comment" data-platforms="douyin">
+            <span>作品评论</span>
+            <small>仅抖音</small>
+          </button>
+          <button class="nav-item" type="button" data-task="search" data-platforms="douyin">
+            <span>内容搜索</span>
+            <small>仅抖音</small>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="api-state" aria-live="polite">
+            <span class="status-marker" id="status-marker" aria-hidden="true"></span>
+            <span id="status-text">正在连接 API</span>
+          </div>
+          <div class="utility-links">
+            <a href="/docs" target="_blank" rel="noreferrer">API 文档</a>
+            <a href="/repository" target="_blank" rel="noreferrer">项目源码</a>
+          </div>
+        </div>
+      </aside>
+
+      <button class="sidebar-scrim" id="sidebar-scrim" type="button" aria-label="关闭功能菜单"></button>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="title-row">
+            <button
+              class="menu-toggle"
+              id="menu-toggle"
+              type="button"
+              aria-controls="sidebar"
+              aria-expanded="false"
+            >
+              菜单
+            </button>
+            <div>
+              <p class="section-context" id="section-context">作品解析</p>
+              <h1 id="page-title">解析作品与媒体资源</h1>
+            </div>
+          </div>
+
+          <div class="platform-switch" role="group" aria-label="选择平台">
+            <button class="is-active" type="button" data-platform="douyin" aria-pressed="true">
+              抖音
+            </button>
+            <button type="button" data-platform="tiktok" aria-pressed="false">
+              TikTok
+            </button>
+          </div>
+        </header>
+
+        <div class="workspace">
+          <section class="request-panel" aria-labelledby="request-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="request-title">填写任务参数</h2>
+                <p id="task-description">粘贴作品分享文本、完整链接，或直接输入作品 ID。</p>
+              </div>
+              <code class="endpoint" id="endpoint-label">POST /douyin/detail</code>
+            </div>
+
+            <form id="request-form" novalidate>
+              <div class="dynamic-fields" id="dynamic-fields"></div>
+
+              <details class="advanced-settings">
+                <summary>
+                  <span>请求选项</span>
+                  <small>Cookie、代理与原始数据</small>
+                </summary>
+                <div class="advanced-grid">
+                  <div class="field field-wide">
+                    <label for="cookie">Cookie</label>
+                    <textarea
+                      id="cookie"
+                      name="cookie"
+                      rows="3"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="留空时使用 settings.json 中的 Cookie"
+                    ></textarea>
+                    <p class="field-help">仅用于本次请求，不写入浏览器存储。</p>
+                  </div>
+                  <div class="field">
+                    <label for="proxy">代理地址</label>
+                    <input
+                      id="proxy"
+                      name="proxy"
+                      type="text"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="http://127.0.0.1:7890"
+                    >
+                  </div>
+                  <div class="field">
+                    <label for="token">API Token</label>
+                    <input
+                      id="token"
+                      name="token"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="本地默认可留空"
+                    >
+                  </div>
+                  <label class="check-field field-wide" for="source">
+                    <input id="source" name="source" type="checkbox">
+                    <span>
+                      <strong>返回平台原始数据</strong>
+                      <small>开启后结果体积更大，适合调试接口。</small>
+                    </span>
+                  </label>
+                </div>
+              </details>
+
+              <div class="form-actions">
+                <button class="primary-button" id="submit-button" type="submit">
+                  开始解析
+                </button>
+                <p id="form-note">请求会直接发送到当前 DouK 后端。</p>
+              </div>
+            </form>
+          </section>
+
+          <section class="result-panel" aria-labelledby="result-title" aria-live="polite">
+            <div class="panel-heading result-heading">
+              <div>
+                <h2 id="result-title">任务结果</h2>
+                <p id="result-subtitle">完成请求后，可查看媒体资源和完整响应。</p>
+              </div>
+              <div class="result-actions" id="result-actions" hidden>
+                <button class="secondary-button" id="copy-result" type="button">复制 JSON</button>
+                <button class="secondary-button" id="download-result" type="button">下载 JSON</button>
+              </div>
+            </div>
+
+            <div class="empty-state" id="empty-state">
+              <div class="empty-visual" aria-hidden="true">
+                <span>{ }</span>
+              </div>
+              <h3>等待任务</h3>
+              <p>结果、媒体直链和请求耗时会显示在这里。</p>
+            </div>
+
+            <div class="loading-state" id="loading-state" hidden aria-label="正在请求数据">
+              <div class="skeleton skeleton-title"></div>
+              <div class="skeleton skeleton-line"></div>
+              <div class="skeleton skeleton-line short"></div>
+              <div class="skeleton-grid">
+                <div class="skeleton skeleton-block"></div>
+                <div class="skeleton skeleton-block"></div>
+              </div>
+            </div>
+
+            <div class="error-state" id="error-state" hidden role="alert">
+              <strong>请求未完成</strong>
+              <p id="error-message"></p>
+            </div>
+
+            <div class="result-content" id="result-content" hidden>
+              <dl class="result-summary">
+                <div>
+                  <dt>状态</dt>
+                  <dd id="summary-status">成功</dd>
+                </div>
+                <div>
+                  <dt>数据条目</dt>
+                  <dd id="summary-count">0</dd>
+                </div>
+                <div>
+                  <dt>请求耗时</dt>
+                  <dd id="summary-duration">0 ms</dd>
+                </div>
+              </dl>
+
+              <div class="media-section" id="media-section" hidden>
+                <div class="subsection-heading">
+                  <h3>可用资源</h3>
+                  <p id="media-count"></p>
+                </div>
+                <div class="media-list" id="media-list"></div>
+              </div>
+
+              <div class="json-section">
+                <div class="subsection-heading">
+                  <h3>完整响应</h3>
+                  <p>格式化 JSON</p>
+                </div>
+                <pre id="json-output" tabindex="0"></pre>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/static/web/app.js" defer></script>
+  </body>
+</html>

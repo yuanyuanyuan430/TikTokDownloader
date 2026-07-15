@@ -730,17 +730,25 @@ class TikTok:
         collect_name: str = "",
     ):
         self.logger.info(_("开始提取作品数据"))
-        id_, name, mark = self.extractor.preprocessing_data(
-            info or data,
-            tiktok,
-            mode,
-            mark,
-            user_id,
-            mix_id,
-            mix_title,
-            collect_id,
-            collect_name,
-        )
+        same_author = mode in {"post", "mix"}
+        try:
+            id_, name, mark = self.extractor.preprocessing_data(
+                info or data,
+                tiktok,
+                mode,
+                mark,
+                user_id,
+                mix_id,
+                mix_title,
+                collect_id,
+                collect_name,
+            )
+        except DownloaderError:
+            if mode != "post":
+                raise
+            id_ = user_id
+            name = mark = mark or user_id
+            same_author = False
         if not api and not all((id_, name, mark)):
             self.logger.error(_("提取账号或合集信息发生错误！"))
             return False
@@ -774,11 +782,7 @@ class TikTok:
                 mark=mark,
                 earliest=earliest or date(2016, 9, 20),
                 latest=latest or date.today(),
-                same=mode
-                in {
-                    "post",
-                    "mix",
-                },
+                same=same_author,
             )
         if api:
             return data
